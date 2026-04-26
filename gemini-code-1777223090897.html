@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Avatar Video Studio</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0f172a;
+            color: white;
+            font-family: system-ui, -apple-system, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 32px;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+            box-sizing: border-box;
+        }
+
+        h2 { margin-top: 0; }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #cbd5e1;
+            font-size: 0.9rem;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: white;
+            padding: 12px;
+            resize: none;
+            box-sizing: border-box;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #8b5cf6;
+        }
+
+        .sliders-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin: 24px 0;
+        }
+
+        .slider-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: #8b5cf6;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(to right, #7c3aed, #2563eb);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover:not(:disabled) { 
+            opacity: 0.9; 
+        }
+
+        button:disabled { 
+            opacity: 0.5; 
+            cursor: not-allowed; 
+        }
+
+        .hidden { 
+            display: none; 
+        }
+
+        #statusMessage {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            background: rgba(139, 92, 246, 0.2);
+            border: 1px solid rgba(139, 92, 246, 0.4);
+            font-size: 0.9rem;
+        }
+
+        .error-state {
+            background: rgba(239, 68, 68, 0.2) !important;
+            border-color: rgba(239, 68, 68, 0.4) !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="glass-panel">
+        <h2>Create Avatar Video</h2>
+        
+        <div class="input-group">
+            <label for="scriptText">Script (<span id="charCount">0</span>/500)</label>
+            <textarea id="scriptText" maxlength="500" placeholder="Type your script here..."></textarea>
+        </div>
+
+        <div class="sliders-grid">
+            <div class="slider-group">
+                <label>Speed: <span id="speedVal">0</span></label>
+                <input type="range" id="speedInput" min="-10" max="10" value="0">
+            </div>
+            <div class="slider-group">
+                <label>Volume: <span id="volVal">0</span></label>
+                <input type="range" id="volInput" min="-10" max="10" value="0">
+            </div>
+            <div class="slider-group">
+                <label>Tone: <span id="toneVal">0</span></label>
+                <input type="range" id="toneInput" min="-10" max="10" value="0">
+            </div>
+        </div>
+
+        <button id="generateBtn" disabled>Generate Video 🎬</button>
+
+        <div id="statusMessage" class="hidden"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // DOM Elements
+            const scriptText = document.getElementById('scriptText');
+            const charCount = document.getElementById('charCount');
+            const generateBtn = document.getElementById('generateBtn');
+            const statusMessage = document.getElementById('statusMessage');
+
+            const speedInput = document.getElementById('speedInput');
+            const volInput = document.getElementById('volInput');
+            const toneInput = document.getElementById('toneInput');
+
+            // Live UI Updates
+            scriptText.addEventListener('input', () => {
+                charCount.textContent = scriptText.value.length;
+                generateBtn.disabled = scriptText.value.trim().length === 0;
+            });
+
+            speedInput.addEventListener('input', (e) => document.getElementById('speedVal').textContent = e.target.value);
+            volInput.addEventListener('input', (e) => document.getElementById('volVal').textContent = e.target.value);
+            toneInput.addEventListener('input', (e) => document.getElementById('toneVal').textContent = e.target.value);
+
+            // Backend API Call
+            generateBtn.addEventListener('click', async () => {
+                const script = scriptText.value.trim();
+                if (!script) return;
+
+                // Trigger Loading State
+                generateBtn.disabled = true;
+                generateBtn.textContent = 'Initializing Engine...';
+                statusMessage.classList.add('hidden');
+                statusMessage.classList.remove('error-state');
+
+                // Construct Payload
+                const payload = {
+                    script: script,
+                    model_id: 'default_avatar_01',
+                    settings: {
+                        speed: parseInt(speedInput.value),
+                        volume: parseInt(volInput.value),
+                        tone: parseInt(toneInput.value),
+                        style: 'chat'
+                    }
+                };
+
+                try {
+                    // Note: Make sure your Node server is running on port 5000 
+                    // and has CORS configured to accept this request.
+                    const response = await fetch('http://localhost:5000/api/video/generate', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json' 
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        statusMessage.textContent = `✅ Processing started! Tracking ID: ${data.videoId}`;
+                        statusMessage.classList.remove('hidden');
+                    } else {
+                        throw new Error(data.error || 'API Request Failed');
+                    }
+                } catch (error) {
+                    console.error('Generation Error:', error);
+                    statusMessage.textContent = `❌ Error: ${error.message}`;
+                    statusMessage.classList.add('error-state');
+                    statusMessage.classList.remove('hidden');
+                } finally {
+                    // Reset Button State
+                    generateBtn.disabled = false;
+                    generateBtn.textContent = 'Generate Video 🎬';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
